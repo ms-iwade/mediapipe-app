@@ -182,7 +182,14 @@ export const WebcamView = ({ onGestureDetected }: WebcamViewProps) => {
   }
 
   return (
-    <Box sx={{ position: "relative", width: "fit-content", mx: "auto" }}>
+    <Box
+      sx={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        bgcolor: "black",
+      }}
+    >
       {!isLoaded && (
         <Box
           sx={{
@@ -204,8 +211,10 @@ export const WebcamView = ({ onGestureDetected }: WebcamViewProps) => {
         ref={videoRef}
         style={{
           display: "block",
-          maxWidth: "100%",
+          width: "100%",
+          height: "100%",
           transform: "scaleX(-1)", // 鏡像反転
+          objectFit: "contain", // 全体表示（レターボックス許容）
         }}
         playsInline
         muted
@@ -219,6 +228,7 @@ export const WebcamView = ({ onGestureDetected }: WebcamViewProps) => {
           width: "100%",
           height: "100%",
           transform: "scaleX(-1)", // 鏡像反転（描画も合わせる）
+          objectFit: "contain",
         }}
       />
 
