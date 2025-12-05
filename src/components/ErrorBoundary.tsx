@@ -13,8 +13,8 @@ export const ErrorBoundary = () => {
   } else if (error instanceof Error) {
     // その他のエラー
     errorMessage = error.message;
-  } else if (typeof error === 'string') {
-      errorMessage = error;
+  } else if (typeof error === "string") {
+    errorMessage = error;
   }
 
   return (
@@ -29,19 +29,12 @@ export const ErrorBoundary = () => {
         textAlign: "center",
       }}
     >
-      <Typography variant="h4" gutterBottom color="error">
-        Oops!
-      </Typography>
-      <Typography variant="body1" paragraph>
-        申し訳ありません、問題が発生しました。
-      </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
         {errorMessage}
       </Typography>
-      <Button variant="contained" onClick={() => window.location.href = "/"}>
-        ホームに戻る
+      <Button variant="text" onClick={() => (window.location.href = "/")}>
+        再読み込み
       </Button>
     </Box>
   );
 };
-
