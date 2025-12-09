@@ -41,8 +41,8 @@ export const WebcamView = ({ onGestureDetected }: WebcamViewProps) => {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const toggleButtonRef = useRef<HTMLButtonElement>(null);
   const requestRef = useRef<number>(0);
-  const prevIndexZRef = useRef<number | null>(null);
-  const lastClickTsRef = useRef<number>(0);
+  const prevIndexZRef = useRef<Array<number | null>>([]);
+  const lastClickTsRef = useRef<Array<number | null>>([]);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [clickCount, setClickCount] = useState(0);
   const [showLabels, setShowLabels] = useState(false);
@@ -190,64 +190,73 @@ export const WebcamView = ({ onGestureDetected }: WebcamViewProps) => {
   }
 
   const detectGestureClick = (gestureResult: GestureRecognizerResult) => {
-    const now = Date.now();
-    if (now - lastClickTsRef.current < 400) return;
-
-    const topGesture = gestureResult.gestures[0]?.[0];
-    if (!topGesture || topGesture.categoryName !== "Pointing_Up") {
-      prevIndexZRef.current = null;
-      return;
-    }
-
-    const landmarks = gestureResult.landmarks?.[0];
-    if (!landmarks || !landmarks[8]) {
-      prevIndexZRef.current = null;
-      return;
-    }
-
-    // ボタン上に指先があるか判定（表示座標に変換）
     const containerRect = containerRef.current?.getBoundingClientRect();
     const buttonRect = buttonRef.current?.getBoundingClientRect();
     const toggleRect = toggleButtonRef.current?.getBoundingClientRect();
-    if (!containerRect || !buttonRect || !toggleRect) {
-      prevIndexZRef.current = null;
-      return;
-    }
+    if (!containerRect || !buttonRect || !toggleRect) return;
 
-    const tip = landmarks[8];
-    const tipX = (1 - tip.x) * containerRect.width + containerRect.left;
-    const tipY = tip.y * containerRect.height + containerRect.top;
-    const isOnCountButton =
-      tipX >= buttonRect.left &&
-      tipX <= buttonRect.right &&
-      tipY >= buttonRect.top &&
-      tipY <= buttonRect.bottom;
+    const now = Date.now();
+    const handCount = Math.min(
+      gestureResult.gestures.length,
+      gestureResult.landmarks?.length ?? 0
+    );
 
-    const isOnToggleButton =
-      tipX >= toggleRect.left &&
-      tipX <= toggleRect.right &&
-      tipY >= toggleRect.top &&
-      tipY <= toggleRect.bottom;
+    for (let i = 0; i < handCount; i++) {
+      if (prevIndexZRef.current[i] === undefined) {
+        prevIndexZRef.current[i] = null;
+      }
+      if (lastClickTsRef.current[i] === undefined) {
+        lastClickTsRef.current[i] = null;
+      }
 
-    if (!isOnCountButton && !isOnToggleButton) {
-      prevIndexZRef.current = null;
-      return;
-    }
+      const gesture = gestureResult.gestures[i]?.[0];
+      const landmarks = gestureResult.landmarks?.[i];
+      if (!gesture || gesture.categoryName !== "Pointing_Up" || !landmarks) {
+        prevIndexZRef.current[i] = null;
+        continue;
+      }
 
-    const currentZ = landmarks[8].z;
-    if (prevIndexZRef.current !== null) {
-      // カメラ方向への前進のみを検出
-      const deltaForward = prevIndexZRef.current - currentZ;
-      if (deltaForward > 0.01) {
-        lastClickTsRef.current = now;
-        if (isOnCountButton) {
-          setClickCount((c) => c + 1);
-        } else if (isOnToggleButton) {
-          setShowLabels((v: boolean) => !v);
+      const tip = landmarks[8];
+      if (!tip) {
+        prevIndexZRef.current[i] = null;
+        continue;
+      }
+
+      const tipX = (1 - tip.x) * containerRect.width + containerRect.left;
+      const tipY = tip.y * containerRect.height + containerRect.top;
+      const isOnCountButton =
+        tipX >= buttonRect.left &&
+        tipX <= buttonRect.right &&
+        tipY >= buttonRect.top &&
+        tipY <= buttonRect.bottom;
+
+      const isOnToggleButton =
+        tipX >= toggleRect.left &&
+        tipX <= toggleRect.right &&
+        tipY >= toggleRect.top &&
+        tipY <= toggleRect.bottom;
+
+      if (!isOnCountButton && !isOnToggleButton) {
+        prevIndexZRef.current[i] = null;
+        continue;
+      }
+
+      const currentZ = tip.z;
+      const prevZ = prevIndexZRef.current[i];
+      const lastClickTs = lastClickTsRef.current[i] ?? 0;
+      if (prevZ !== null) {
+        const deltaForward = prevZ - currentZ;
+        if (deltaForward > 0.01 && now - lastClickTs >= 400) {
+          lastClickTsRef.current[i] = now;
+          if (isOnCountButton) {
+            setClickCount((c) => c + 1);
+          } else if (isOnToggleButton) {
+            setShowLabels((v: boolean) => !v);
+          }
         }
       }
+      prevIndexZRef.current[i] = currentZ;
     }
-    prevIndexZRef.current = currentZ;
   };
 
   return (
