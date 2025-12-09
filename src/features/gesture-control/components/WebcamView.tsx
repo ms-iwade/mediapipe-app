@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import { Box, Typography, CircularProgress } from "@mui/material";
+import { Box, Typography, CircularProgress, Slider } from "@mui/material";
 import { useGestureRecognizer } from "../hooks/useGestureRecognizer";
 import type { GestureRecognizerResult } from "@mediapipe/tasks-vision";
 
@@ -43,8 +43,11 @@ export const WebcamView = ({ onGestureDetected }: WebcamViewProps) => {
   const requestRef = useRef<number>(0);
   const prevIndexZRef = useRef<Array<number | null>>([]);
   const lastClickTsRef = useRef<Array<number | null>>([]);
+  const sliderBoxRef = useRef<HTMLDivElement>(null);
+  const sliderValueRef = useRef<number>(50);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [clickCount, setClickCount] = useState(0);
+  const [sliderValue, setSliderValue] = useState(50);
   const [showLabels, setShowLabels] = useState(false);
 
   const { isLoaded, result, recognize, error } = useGestureRecognizer();
@@ -193,6 +196,7 @@ export const WebcamView = ({ onGestureDetected }: WebcamViewProps) => {
     const containerRect = containerRef.current?.getBoundingClientRect();
     const buttonRect = buttonRef.current?.getBoundingClientRect();
     const toggleRect = toggleButtonRef.current?.getBoundingClientRect();
+    const sliderRect = sliderBoxRef.current?.getBoundingClientRect();
     if (!containerRect || !buttonRect || !toggleRect) return;
 
     const now = Date.now();
@@ -211,6 +215,41 @@ export const WebcamView = ({ onGestureDetected }: WebcamViewProps) => {
 
       const gesture = gestureResult.gestures[i]?.[0];
       const landmarks = gestureResult.landmarks?.[i];
+      if (landmarks && sliderRect) {
+        const tip = landmarks[8];
+        const thumb = landmarks[4];
+        if (tip && thumb) {
+          const tipX = (1 - tip.x) * containerRect.width + containerRect.left;
+          const tipY = tip.y * containerRect.height + containerRect.top;
+          const thumbX =
+            (1 - thumb.x) * containerRect.width + containerRect.left;
+          const thumbY = thumb.y * containerRect.height + containerRect.top;
+
+          const isTipOnSlider =
+            tipX >= sliderRect.left &&
+            tipX <= sliderRect.right &&
+            tipY >= sliderRect.top &&
+            tipY <= sliderRect.bottom;
+          const isThumbOnSlider =
+            thumbX >= sliderRect.left &&
+            thumbX <= sliderRect.right &&
+            thumbY >= sliderRect.top &&
+            thumbY <= sliderRect.bottom;
+
+          if (isTipOnSlider && isThumbOnSlider) {
+            const gripX = (tipX + thumbX) / 2;
+            const ratio =
+              (gripX - sliderRect.left) / Math.max(sliderRect.width, 1);
+            const clamped = Math.min(1, Math.max(0, ratio));
+            const nextValue = Math.round(clamped * 100);
+            if (Math.abs(nextValue - sliderValueRef.current) >= 1) {
+              sliderValueRef.current = nextValue;
+              setSliderValue(nextValue);
+            }
+          }
+        }
+      }
+
       if (!gesture || gesture.categoryName !== "Pointing_Up" || !landmarks) {
         prevIndexZRef.current[i] = null;
         continue;
@@ -441,6 +480,45 @@ export const WebcamView = ({ onGestureDetected }: WebcamViewProps) => {
           }}
         >
           判定表示: {showLabels ? "ON" : "OFF"}
+        </Box>
+      </Box>
+
+      <Box
+        sx={{
+          position: "absolute",
+          bottom: "12%",
+          left: "50%",
+          transform: "translateX(-50%)",
+          pointerEvents: "none",
+          width: "100%",
+          display: "flex",
+          justifyContent: "center",
+        }}
+      >
+        <Box
+          sx={{
+            width: 280,
+            px: 2,
+            py: 1,
+            borderRadius: 1,
+            bgcolor: "rgba(0,0,0,0.5)",
+            pointerEvents: "auto",
+          }}
+          ref={sliderBoxRef}
+        >
+          <Slider
+            value={sliderValue}
+            onChange={(_, value) => {
+              if (typeof value === "number") {
+                sliderValueRef.current = value;
+                setSliderValue(value);
+              }
+            }}
+            min={0}
+            max={100}
+            step={1}
+            aria-label="Adjust"
+          />
         </Box>
       </Box>
     </Box>
